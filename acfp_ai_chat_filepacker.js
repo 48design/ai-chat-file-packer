@@ -59,6 +59,11 @@ let IGNORE_EXTENSIONS = [
   'mpeg',
   'ogg',
   'wav',
+  'woff',
+  'woff2',
+  'eot',
+  'ttf',
+  'otf'
 ];
 
 let IGNORE_FILES = [
@@ -93,8 +98,8 @@ const supportedArgs = [
   },
   {
     args: ['-e', '--ext'],
-    description: 'Specify the file extensions that should be processed, without a leading dot, as a comma separated list. Files with a leading dot, like .htaccess, must be added with a leading dot.',
-    default: PROCESS_EXTENSIONS.sort().join(','),
+    description: 'Specify the file extensions that should be processed, without a leading dot, as a comma separated list. Files with a leading dot, like .htaccess, must be added with a leading dot. Set to empty to process all files not in the ignore list.',
+    default: `"${PROCESS_EXTENSIONS.sort().join(',')}"`,
   },
   {
     args: ['-ea', '--ext-append'],
@@ -104,7 +109,7 @@ const supportedArgs = [
   {
     args: ['-id', '--ignore-dirs'],
     description: 'Specify the directories to ignore, relative to the source directory, as a comma separated list.',
-    default: IGNORE_DIRS.sort().join(','),
+    default: `"${IGNORE_DIRS.sort().join(', ')}"`,
   },
   {
     args: ['-ida', '--ignore-dirs-append'],
@@ -114,7 +119,7 @@ const supportedArgs = [
   {
     args: ['-if', '--ignore-files'],
     description: 'Specify the files to ignore, relative to the source directory, as a comma separated list.',
-    default: IGNORE_FILES.sort().join(','),
+    default: `"${IGNORE_FILES.sort().join(', ')}"`,
   },
   {
     args: ['-ifa', '--ignore-files-append'],
@@ -124,7 +129,7 @@ const supportedArgs = [
   {
     args: ['-ie', '--ignore-ext'],
     description: 'Specify the file extensions to ignore, without a leading dot, as a comma separated list. Files with a leading dot, like .htpasswd, must be added with a leading dot.',
-    default: IGNORE_EXTENSIONS.sort().join(','),
+    default: `"${IGNORE_EXTENSIONS.sort().join(',')}"`,
   },
   {
     args: ['-iea', '--ignore-ext-append'],
