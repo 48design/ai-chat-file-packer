@@ -138,7 +138,7 @@ const args = process.argv.slice(2);
 
 // Display help menu
 if (args.includes('--help') || args.includes('-h')) {
-  console.log('Usage: script.js [options]');
+  console.log('Usage: acfp [options]');
   console.log('\nOptions:\n');
 
   // Calculate the maximum width for the args column
