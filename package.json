@@ -1,0 +1,25 @@
+{
+  "name": "ai-chat-file-packer",
+  "version": "1.0.0",
+  "description": "Packs your coding project structure and file contents into a single txt file to upload to AI chats like ChatGPT for better and more sensible assistance.",
+  "main": "acfp_ai_chat_filepacker.js",
+  "bin": {
+    "acfp": "./acfp_ai_chat_filepacker.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/48design/ai-chat-file-packer.git"
+  },
+  "keywords": [
+    "ai",
+    "chatgpt",
+    "coding",
+    "programming"
+  ],
+  "author": "48DESIGN GmbH",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/48design/ai-chat-file-packer/issues"
+  },
+  "homepage": "https://github.com/48design/ai-chat-file-packer#readme"
+}
