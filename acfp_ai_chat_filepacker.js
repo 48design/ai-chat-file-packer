@@ -99,7 +99,7 @@ const supportedArgs = [
   {
     args: ['-e', '--ext'],
     description: 'Specify the file extensions that should be processed, without a leading dot, as a comma separated list. Files with a leading dot, like .htaccess, must be added with a leading dot. Set to empty to process all files not in the ignore list.',
-    default: `"${PROCESS_EXTENSIONS.sort().join(',')}"`,
+    default: `"${PROCESS_EXTENSIONS.sort().join(', ')}"`,
   },
   {
     args: ['-ea', '--ext-append'],
@@ -129,7 +129,7 @@ const supportedArgs = [
   {
     args: ['-ie', '--ignore-ext'],
     description: 'Specify the file extensions to ignore, without a leading dot, as a comma separated list. Files with a leading dot, like .htpasswd, must be added with a leading dot.',
-    default: `"${IGNORE_EXTENSIONS.sort().join(',')}"`,
+    default: `"${IGNORE_EXTENSIONS.sort().join(', ')}"`,
   },
   {
     args: ['-iea', '--ignore-ext-append'],
