@@ -1,3 +1,15 @@
 [
-    "package-lock.json"
+    ".DS_Store",
+    ".editorconfig",
+    ".env",
+    ".env.development",
+    ".env.local",
+    ".env.production",
+    ".env.test",
+    ".gitattributes",
+    "Thumbs.db",
+    "desktop.ini",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock"
 ]
