@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-
 const fs = require('fs');
 const path = require('path');
 
@@ -31,6 +30,7 @@ let PROCESS_EXTENSIONS = [
   'md',
   'sql',
   'sh',
+  'vue'
 ];
 
 let IGNORE_EXTENSIONS = [
@@ -77,62 +77,75 @@ const supportedArgs = [
   {
     args: ['-h', '--help'],
     description: 'Show this help',
+    type: 'boolean',
   },
   {
     args: ['-s', '--silent'],
-    description: 'Do not log progress to the console'
+    description: 'Do not log progress to the console',
+    type: 'boolean',
   },
   {
     args: ['-ml', '--multiline'],
-    description: 'Log progress in the console as multiple lines (can be helpful for debugging)'
+    description: 'Log progress in the console as multiple lines (can be helpful for debugging)',
+    type: 'boolean',
   },
   {
     args: ['-d', '--dir'],
     description: 'Specify the input directory',
+    type: 'string',
     default: 'the current working directory',
   },
   {
     args: ['-o', '--output'],
     description: 'Specify the output file path and optionally name',
-    default: `${defaultFilename} in the source directory`,
+    type: 'string',
+    default: `${defaultFilename} in the source directory`
   },
   {
     args: ['-e', '--ext'],
     description: 'Specify the file extensions that should be processed, without a leading dot, as a comma separated list. Files with a leading dot, like .htaccess, must be added with a leading dot. Set to empty to process all files not in the ignore list.',
+    type: 'list',
     default: `"${PROCESS_EXTENSIONS.sort().join(', ')}"`,
   },
   {
     args: ['-ea', '--ext-append'],
+    type: 'list',
     description: 'Like -e / --ext, but appends to the default list.',
     default: '',
   },
   {
     args: ['-id', '--ignore-dirs'],
+    type: 'list',
     description: 'Specify the directories to ignore, relative to the source directory, as a comma separated list.',
     default: `"${IGNORE_DIRS.sort().join(', ')}"`,
   },
   {
     args: ['-ida', '--ignore-dirs-append'],
+    type: 'list',
     description: 'Like -id / --ignore-dirs, but appends to the default list.',
     default: '',
   },
   {
     args: ['-if', '--ignore-files'],
+    type: 'list',
     description: 'Specify the files to ignore, relative to the source directory, as a comma separated list.',
     default: `"${IGNORE_FILES.sort().join(', ')}"`,
   },
   {
     args: ['-ifa', '--ignore-files-append'],
+    type: 'list',
     description: 'Like -if / --ignore-files, but appends to the default list.',
     default: '',
   },
   {
     args: ['-ie', '--ignore-ext'],
+    type: 'list',
     description: 'Specify the file extensions to ignore, without a leading dot, as a comma separated list. Files with a leading dot, like .htpasswd, must be added with a leading dot.',
     default: `"${IGNORE_EXTENSIONS.sort().join(', ')}"`,
   },
   {
     args: ['-iea', '--ignore-ext-append'],
+    type: 'list',
     description: 'Like -ie / --ignore-ext, but appends to the default list.',
     default: '',
   }
@@ -162,66 +175,160 @@ if (args.includes('--help') || args.includes('-h')) {
   process.exit(0);
 }
 
-// Silent mode
-const silent = args.includes('--silent') || args.includes('-s');
+// Load configuration files
+function loadProjectConfig() {
+  const packageJsonPath = path.join(process.cwd(), 'package.json');
+  const acfpConfigPath = path.join(process.cwd(), 'acfp.config.json');
+  let projectConfig = {};
+  let configSource = null;
 
-// Single-line mode for progress logging
-const multiLine = args.includes('--multiline') || args.includes('-ml');
+  if (fs.existsSync(acfpConfigPath)) {
+    projectConfig = JSON.parse(fs.readFileSync(acfpConfigPath, 'utf-8'));
+    configSource = 'acfp.config.json';
+  }
 
-// Get source directory from arguments or default to current directory
-const dirArgIndex = args.findIndex(arg => arg === '--dir' || arg === '-d');
-const sourceDir = dirArgIndex !== -1 && args[dirArgIndex + 1]
-  ? path.resolve(args[dirArgIndex + 1])
-  : process.cwd();
+  if (fs.existsSync(packageJsonPath)) {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    if (packageJson.acfp) {
+      if (configSource) {
+        console.log('Note: This project contains an "acfp.config.json" as well as an "acfp" property in its "package.json". The configuration in "package.json" will be ignored and should be removed.');
+      } else {
+        projectConfig = packageJson.acfp;
+        configSource = 'package.json';
+      }
+    }
+  }
 
-// Get output file from arguments or default to defaultFilename in the source directory
-const outputArgIndex = args.findIndex(arg => arg === '--output' || arg === '-o');
-const outputPath = outputArgIndex !== -1 && args[outputArgIndex + 1]
-  ? path.resolve(args[outputArgIndex + 1])
-  : path.join(sourceDir, defaultFilename);
-const outputFile = fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory()
-  ? path.join(outputPath, defaultFilename)
-  : outputPath;
-
-// adapt files, dirs and extensions to process or ignore:
-const extArgIndex = args.findIndex(arg => arg === '--ext' || arg === '-e');
-if (extArgIndex !== -1 && args[extArgIndex + 1]) {
-  PROCESS_EXTENSIONS = args[extArgIndex + 1].split(',').map(ext => ext.trim());
+  return { projectConfig, configSource };
 }
 
-const extAppendArgIndex = args.findIndex(arg => arg === '--ext-append' || arg === '-ea');
-if (extAppendArgIndex !== -1 && args[extAppendArgIndex + 1]) {
-  PROCESS_EXTENSIONS = PROCESS_EXTENSIONS.concat(args[extAppendArgIndex + 1].split(',').map(ext => ext.trim()));
+function normalizeList(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') return value.split(',').map(item => item.trim());
+  return [];
 }
 
-const ignoreDirsArgIndex = args.findIndex(arg => arg === '--ignore-dirs' || arg === '-id');
-if (ignoreDirsArgIndex !== -1 && args[ignoreDirsArgIndex + 1]) {
-  IGNORE_DIRS = args[ignoreDirsArgIndex + 1].split(',').map(dir => dir.trim());
+function parseCliArgs() {
+  const cliArgs = {};
+  supportedArgs.forEach(option => {
+    const [short, long] = option.args; // Get the long-form argument
+    const longIndex = args.findIndex(arg => arg === long);
+    const shortIndex = args.findIndex(arg => arg === short);
+    const index = longIndex !== -1 ? longIndex : shortIndex;
+
+    if (index !== -1) {
+      let value = args[index + 1];
+      if(value && value.startsWith('-')) {
+        value = null;
+      }
+
+      switch (option.type) {
+        case 'boolean':
+          // Boolean: set to true if the flag is present
+          const booleanFalse = value === 'false' || value === "0" || value === 0;
+          cliArgs[long.replace(/^-+/, '')] = booleanFalse ? false : true;
+          break;
+
+        case 'string':
+          // String: assign the next value
+          if (!value?.startsWith('-')) {
+            cliArgs[long.replace(/^-+/, '')] = value;
+          }
+          break;
+
+        case 'list':
+          // List: parse as comma-separated values or accept an array
+          if(
+            !value
+            || value?.startsWith('-')
+            || value === '0'
+            || value === 0
+            || value === 'null'
+            || value === 'false'
+            || value === '[]'
+            || value === '*'
+          ) {
+            cliArgs[long.replace(/^-+/, '')] = [];
+          } else {
+            cliArgs[long.replace(/^-+/, '')] = value.includes(',')
+              ? value.split(',').map(item => item.trim())
+              : [value];
+          }
+          break;
+      }
+    }
+  });
+
+  return cliArgs;
 }
 
-const ignoreDirsAppendArgIndex = args.findIndex(arg => arg === '--ignore-dirs-append' || arg === '-ida');
-if (ignoreDirsAppendArgIndex !== -1 && args[ignoreDirsAppendArgIndex + 1]) {
-  IGNORE_DIRS = IGNORE_DIRS.concat(args[ignoreDirsAppendArgIndex + 1].split(',').map(dir => dir.trim()));
+function mergeConfigs(defaults, projectConfig, cliArgs) {
+  const mergedConfig = { ...defaults };
+
+  // Merge project config
+  Object.keys(projectConfig).forEach(key => {
+    if (Array.isArray(defaults[key])) {
+      mergedConfig[key] = normalizeList(projectConfig[key]);
+    } else {
+      mergedConfig[key] = projectConfig[key];
+    }
+  });
+
+  // Merge CLI arguments
+  Object.keys(cliArgs).forEach(key => {
+    if (Array.isArray(defaults[key])) {
+      mergedConfig[key] = normalizeList(cliArgs[key]);
+    } else if (cliArgs[key] !== undefined) {
+      mergedConfig[key] = cliArgs[key];
+    }
+  });
+
+  ['ext', 'ignore-dirs', 'ignore-files', 'ignore-ext'].forEach(key => {
+    mergedConfig[key] = mergedConfig[key].concat(mergedConfig[`${key}-append`]);
+    delete mergedConfig[`${key}-append`];
+  });
+
+  return mergedConfig;
 }
 
-const ignoreFilesArgIndex = args.findIndex(arg => arg === '--ignore-files' || arg === '-if');
-if (ignoreFilesArgIndex !== -1 && args[ignoreFilesArgIndex + 1]) {
-  IGNORE_FILES = args[ignoreFilesArgIndex + 1].split(',').map(file => file.trim());
-}
+const { projectConfig, configSource } = loadProjectConfig();
+const defaults = {
+  silent: false,
+  multiline: false,
+  dir: process.cwd(),
+  output: path.join(process.cwd(), defaultFilename),
+  ext: PROCESS_EXTENSIONS,
+  'ext-append': [],
+  'ignore-dirs': IGNORE_DIRS,
+  'ignore-dirs-append': [],
+  'ignore-files': IGNORE_FILES,
+  'ignore-files-append': [],
+  'ignore-ext': IGNORE_EXTENSIONS,
+  'ignore-ext-append': []
+};
 
-const ignoreFilesAppendArgIndex = args.findIndex(arg => arg === '--ignore-files-append' || arg === '-ifa');
-if (ignoreFilesAppendArgIndex !== -1 && args[ignoreFilesAppendArgIndex + 1]) {
-  IGNORE_FILES = IGNORE_FILES.concat(args[ignoreFilesAppendArgIndex + 1].split(',').map(file => file.trim()));
-}
+const cliArgs = parseCliArgs();
+const finalConfig = mergeConfigs(defaults, projectConfig, cliArgs);
 
-const ignoreExtArgIndex = args.findIndex(arg => arg === '--ignore-ext' || arg === '-ie');
-if (ignoreExtArgIndex !== -1 && args[ignoreExtArgIndex + 1]) {
-  IGNORE_EXTENSIONS = args[ignoreExtArgIndex + 1].split(',').map(ext => ext.trim());
-}
+// Apply configurations
+const {
+  silent,
+  multiline,
+  dir: sourceDir,
+  output: outputFile,
+  ext,
+  'ignore-dirs': ignoreDirs,
+  'ignore-files': ignoreFiles,
+  'ignore-ext': ignoreExt
+} = finalConfig;
 
-const ignoreExtAppendArgIndex = args.findIndex(arg => arg === '--ignore-ext-append' || arg === '-iea');
-if (ignoreExtAppendArgIndex !== -1 && args[ignoreExtAppendArgIndex + 1]) {
-  IGNORE_EXTENSIONS = IGNORE_EXTENSIONS.concat(args[ignoreExtAppendArgIndex + 1].split(',').map(ext => ext.trim()));
+PROCESS_EXTENSIONS = ext;
+IGNORE_DIRS = ignoreDirs;
+IGNORE_FILES = ignoreFiles;
+IGNORE_EXTENSIONS = ignoreExt;
+
+if(configSource && !silent) {
+  console.log('Loaded project configuration from:', configSource);
 }
 
 // Get the absolute path of the script being executed
@@ -352,7 +459,7 @@ function processFiles(files, relativeRoot, output) {
     const message = `[${' '.repeat(3 - percent.toString().length)}${percent}%] ${' '.repeat(files.length.toString().length - (index + 1).toString().length)}(${index + 1}/${files.length}) ${status}: ${relativePath}`;
 
     if (!silent) {
-      if (multiLine) {
+      if (multiline) {
         // For multi-line mode, append a newline after each message
         process.stdout.write(`${message}\n`);
       } else {
@@ -406,5 +513,60 @@ if (!silent) console.log("Done.\nProcessing file contents...");
 processFiles(result.files, sourceDir, output);
 
 output.end();
+
+// Determine the base directory for the output file
+let baseDir = outputFile;
+if (fs.existsSync(outputFile) && fs.statSync(outputFile).isDirectory()) {
+  baseDir = outputFile; // If outputFile is a directory
+  outputFile = path.join(baseDir, defaultFilename); // Add the default filename
+} else {
+  baseDir = path.dirname(outputFile); // Otherwise, use the directory of the file
+}
+
+// Check directories for .git or package.json and update/create .gitignore or .npmignore
+const gitDir = path.join(baseDir, '.git');
+const npmFile = path.join(baseDir, 'package.json');
+const gitignoreFile = path.join(baseDir, '.gitignore');
+const npmignoreFile = path.join(baseDir, '.npmignore');
+
+// Helper function to ensure ignore files have proper entries and formatting
+function updateIgnoreFile(ignoreFile, referenceFile, relativeOutputFile) {
+  let ignoreContent = '';
+
+  if (fs.existsSync(ignoreFile)) {
+    // Read existing ignore file content
+    ignoreContent = fs.readFileSync(ignoreFile, 'utf8');
+
+    // Ensure a trailing newline for proper appending
+    if (!ignoreContent.endsWith('\n')) {
+      ignoreContent += '\n';
+    }
+  }
+
+  if (!ignoreContent.includes(`${relativeOutputFile}\n`)) {
+    // Append the new entry with a trailing newline
+    ignoreContent += `${relativeOutputFile}\n`;
+    fs.writeFileSync(ignoreFile, ignoreContent);
+    if (!silent) {
+      console.log(
+        fs.existsSync(ignoreFile)
+          ? `Updated ${path.basename(ignoreFile)} with: ${relativeOutputFile}`
+          : `Created ${path.basename(ignoreFile)} and added: ${relativeOutputFile}`
+      );
+    }
+  }
+}
+
+// Update .gitignore if in a Git repository
+if (fs.existsSync(gitDir)) {
+  const relativeOutputFile = path.relative(baseDir, outputFile);
+  updateIgnoreFile(gitignoreFile, gitDir, relativeOutputFile);
+}
+
+// Update .npmignore if in an NPM package directory
+if (fs.existsSync(npmFile)) {
+  const relativeOutputFile = path.relative(baseDir, outputFile);
+  updateIgnoreFile(npmignoreFile, npmFile, relativeOutputFile);
+}
 
 if (!silent) console.log(`\nAll specified files have been processed and saved to ${outputFile}`);

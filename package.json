@@ -1,6 +1,6 @@
 {
   "name": "acfp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Packs your coding project structure and file contents into a single txt file to upload to AI chats like ChatGPT for better and more sensible assistance.",
   "main": "acfp_ai_chat_filepacker.js",
   "bin": {
