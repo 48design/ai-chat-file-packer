@@ -1,0 +1,9 @@
+[
+    ".git",
+    "vendor",
+    "lib/vendor",
+    "node_modules",
+    "dist",
+    "bin",
+    "svn"
+]

@@ -6,6 +6,9 @@
   "bin": {
     "acfp": "./acfp_ai_chat_filepacker.js"
   },
+  "scripts": {
+    "update-readme": "node .dev/update-readme-options.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/48design/ai-chat-file-packer.git"

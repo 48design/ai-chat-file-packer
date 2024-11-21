@@ -3,72 +3,21 @@
 const fs = require('fs');
 const path = require('path');
 
+// Load default values from files
+const loadDefaults = (fileName) => {
+  const filePath = path.join(__dirname, 'src', 'defaults', fileName);
+  if (!fs.existsSync(filePath)) {
+    console.error(`Error: Missing defaults file: ${fileName}`);
+    process.exit(1);
+  }
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+};
+
 // Configuration: Directories to ignore, file extensions to process, and files or file extensions to ignore
-let IGNORE_DIRS = ['.git', 'vendor', 'lib/vendor', 'node_modules', 'dist', 'bin', 'svn'];
-let PROCESS_EXTENSIONS = [
-  '.htaccess',
-  'txt',
-  'html',
-  'htm',
-  'css',
-  'less',
-  'sass',
-  'js',
-  'ts',
-  'php',
-  'py',
-  'java',
-  'c',
-  'cpp',
-  'h',
-  'cs',
-  'rb',
-  'xml',
-  'json',
-  'yaml',
-  'yml',
-  'md',
-  'sql',
-  'sh',
-  'vue'
-];
-
-let IGNORE_EXTENSIONS = [
-  '.htpasswd',
-  'log',
-  'exe',
-  'dll',
-  'jar',
-  'class',
-  'zip',
-  'rlib',
-  'jpg',
-  'jpeg',
-  'gif',
-  'png',
-  'flv',
-  'avi',
-  'avif',
-  'm4a',
-  'm4v',
-  'mov',
-  'mp2',
-  'mp3',
-  'mp4',
-  'mpg',
-  'mpeg',
-  'ogg',
-  'wav',
-  'woff',
-  'woff2',
-  'eot',
-  'ttf',
-  'otf'
-];
-
-let IGNORE_FILES = [
-  'package-lock.json',
-]
+let IGNORE_DIRS = loadDefaults('ignore_dirs.json');
+let PROCESS_EXTENSIONS = loadDefaults('process_extensions.json');
+let IGNORE_EXTENSIONS = loadDefaults('ignore_extensions.json');
+let IGNORE_FILES = loadDefaults('ignore_files.json');
 
 const defaultFilename = 'combined_output.txt';
 
@@ -99,7 +48,7 @@ const supportedArgs = [
     args: ['-o', '--output'],
     description: 'Specify the output file path and optionally name',
     type: 'string',
-    default: `${defaultFilename} in the source directory`
+    default: `"${defaultFilename}" in the source directory`
   },
   {
     args: ['-e', '--ext'],
